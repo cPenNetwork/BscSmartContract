@@ -188,119 +188,6 @@ interface IERC20Errors {
     error ERC20InvalidSpender(address spender);
 }
 
-/**
- * @dev Standard ERC-721 Errors
- * Interface of the https://eips.ethereum.org/EIPS/eip-6093[ERC-6093] custom errors for ERC-721 tokens.
- */
-interface IERC721Errors {
-    /**
-     * @dev Indicates that an address can't be an owner. For example, `address(0)` is a forbidden owner in ERC-20.
-     * Used in balance queries.
-     * @param owner Address of the current owner of a token.
-     */
-    error ERC721InvalidOwner(address owner);
-
-    /**
-     * @dev Indicates a `tokenId` whose `owner` is the zero address.
-     * @param tokenId Identifier number of a token.
-     */
-    error ERC721NonexistentToken(uint256 tokenId);
-
-    /**
-     * @dev Indicates an error related to the ownership over a particular token. Used in transfers.
-     * @param sender Address whose tokens are being transferred.
-     * @param tokenId Identifier number of a token.
-     * @param owner Address of the current owner of a token.
-     */
-    error ERC721IncorrectOwner(address sender, uint256 tokenId, address owner);
-
-    /**
-     * @dev Indicates a failure with the token `sender`. Used in transfers.
-     * @param sender Address whose tokens are being transferred.
-     */
-    error ERC721InvalidSender(address sender);
-
-    /**
-     * @dev Indicates a failure with the token `receiver`. Used in transfers.
-     * @param receiver Address to which tokens are being transferred.
-     */
-    error ERC721InvalidReceiver(address receiver);
-
-    /**
-     * @dev Indicates a failure with the `operator`’s approval. Used in transfers.
-     * @param operator Address that may be allowed to operate on tokens without being their owner.
-     * @param tokenId Identifier number of a token.
-     */
-    error ERC721InsufficientApproval(address operator, uint256 tokenId);
-
-    /**
-     * @dev Indicates a failure with the `approver` of a token to be approved. Used in approvals.
-     * @param approver Address initiating an approval operation.
-     */
-    error ERC721InvalidApprover(address approver);
-
-    /**
-     * @dev Indicates a failure with the `operator` to be approved. Used in approvals.
-     * @param operator Address that may be allowed to operate on tokens without being their owner.
-     */
-    error ERC721InvalidOperator(address operator);
-}
-
-/**
- * @dev Standard ERC-1155 Errors
- * Interface of the https://eips.ethereum.org/EIPS/eip-6093[ERC-6093] custom errors for ERC-1155 tokens.
- */
-interface IERC1155Errors {
-    /**
-     * @dev Indicates an error related to the current `balance` of a `sender`. Used in transfers.
-     * @param sender Address whose tokens are being transferred.
-     * @param balance Current balance for the interacting account.
-     * @param needed Minimum amount required to perform a transfer.
-     * @param tokenId Identifier number of a token.
-     */
-    error ERC1155InsufficientBalance(address sender, uint256 balance, uint256 needed, uint256 tokenId);
-
-    /**
-     * @dev Indicates a failure with the token `sender`. Used in transfers.
-     * @param sender Address whose tokens are being transferred.
-     */
-    error ERC1155InvalidSender(address sender);
-
-    /**
-     * @dev Indicates a failure with the token `receiver`. Used in transfers.
-     * @param receiver Address to which tokens are being transferred.
-     */
-    error ERC1155InvalidReceiver(address receiver);
-
-    /**
-     * @dev Indicates a failure with the `operator`’s approval. Used in transfers.
-     * @param operator Address that may be allowed to operate on tokens without being their owner.
-     * @param owner Address of the current owner of a token.
-     */
-    error ERC1155MissingApprovalForAll(address operator, address owner);
-
-    /**
-     * @dev Indicates a failure with the `approver` of a token to be approved. Used in approvals.
-     * @param approver Address initiating an approval operation.
-     */
-    error ERC1155InvalidApprover(address approver);
-
-    /**
-     * @dev Indicates a failure with the `operator` to be approved. Used in approvals.
-     * @param operator Address that may be allowed to operate on tokens without being their owner.
-     */
-    error ERC1155InvalidOperator(address operator);
-
-    /**
-     * @dev Indicates an array length mismatch between ids and values in a safeBatchTransferFrom operation.
-     * Used in batch transfers.
-     * @param idsLength Length of the array of token identifiers
-     * @param valuesLength Length of the array of token amounts
-     */
-    error ERC1155InvalidArrayLength(uint256 idsLength, uint256 valuesLength);
-}
-
-
 // File @openzeppelin/contracts/token/ERC20/IERC20.sol@v5.1.0
 
 // Original license: SPDX_License_Identifier: MIT
@@ -748,6 +635,8 @@ contract CPenBscToken is ERC20, Ownable {
     error TradingNotActive();
     error ZeroAddress();
     error TradingAlreadyEnabled();
+    error CapSupplyExceeded();
+    error MintingPeriodEnded();
 
     /**
      * @dev Bot detection mapping
@@ -776,7 +665,7 @@ contract CPenBscToken is ERC20, Ownable {
      * @dev Events
      */
     event AirdropperUpdated(address indexed previousAirdropper, address indexed newAirdropper);
-    event BatchAirdrop(uint256 totalAmount, uint256 recipientCount);
+    event BatchAirdrop(uint256 indexed totalAmount, uint256 indexed recipientCount);
     event BotStatusUpdated(address indexed wallet, bool indexed isBot);
     event MultipleBotStatusUpdated(uint256 count, bool indexed isBot);
     event LimitsRemoved();
@@ -809,7 +698,7 @@ contract CPenBscToken is ERC20, Ownable {
     /**
      * @dev Admin functions
      */
-    function setAirdropper(address newAirdropper) external onlyOwner {
+    function setAirdropper(address newAirdropper) external onlyOwner {        
         address oldAirdropper = _airdropper;
         _airdropper = newAirdropper;
         emit AirdropperUpdated(oldAirdropper, newAirdropper);
@@ -888,6 +777,7 @@ contract CPenBscToken is ERC20, Ownable {
     /**
      * @dev Airdrop function
      */
+    
     function batchAirdrop(
         address[] calldata recipients,
         uint256[] calldata amounts
@@ -898,7 +788,7 @@ contract CPenBscToken is ERC20, Ownable {
 
         uint256 totalAmount = 0;
         uint256 length = recipients.length;
-        
+
         for (uint256 i = 0; i < length;) {
             _mint(recipients[i], amounts[i]);
             totalAmount += amounts[i];
@@ -917,11 +807,15 @@ contract CPenBscToken is ERC20, Ownable {
     function _checkTransferDelay(address from, address to) internal {
         if (from != address(0)) {
             if (!_limitExclusions[from] && !_limitExclusions[to]) {
-                // Require 2 blocks to pass between transfers
-                if (_holderLastTransferTimestamp[tx.origin] >= block.number - 2 || 
-                    _holderLastTransferTimestamp[to] >= block.number - 2) {
+                // Check delay for both sender address and tx.origin
+                if (
+                    _holderLastTransferTimestamp[from] >= block.number - 2 ||
+                    _holderLastTransferTimestamp[tx.origin] >= block.number - 2 || 
+                    _holderLastTransferTimestamp[to] >= block.number - 2
+                ) {
                     revert TransferDelayNotMet();
                 }
+                _holderLastTransferTimestamp[from] = block.number;
                 _holderLastTransferTimestamp[tx.origin] = block.number;
                 _holderLastTransferTimestamp[to] = block.number;
             }
@@ -963,6 +857,6 @@ contract CPenBscToken is ERC20, Ownable {
         
         limitsInEffect = false;        
         _airdropper = address(0);
-        super.renounceOwnership();
+        super.renounceOwnership();        
     }
 }
