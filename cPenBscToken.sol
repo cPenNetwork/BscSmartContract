@@ -635,9 +635,7 @@ contract CPenBscToken is ERC20, Ownable {
     error TradingNotActive();
     error ZeroAddress();
     error TradingAlreadyEnabled();
-    error CapSupplyExceeded();
-    error MintingPeriodEnded();
-
+    
     /**
      * @dev Bot detection mapping
      */
@@ -676,7 +674,7 @@ contract CPenBscToken is ERC20, Ownable {
     /**
      * @dev Constructor
      */
-    constructor() ERC20("cPen", "PEN") Ownable(msg.sender) {
+    constructor() ERC20("cPen", "CPEN") Ownable(msg.sender) {
         _airdropper = msg.sender;
         // Exclude owner and contract from limits
         excludeFromLimits(msg.sender, true);
