@@ -619,16 +619,11 @@ abstract contract ERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
 pragma solidity ^0.8.20;
 
 
-contract CPenBscToken is ERC20, Ownable {
-    /**
-     * @dev The address authorized to perform airdrops.
-     */
-    address private _airdropper;
+contract CPenBscToken is ERC20, Ownable {    
 
     /**
      * @dev Custom errors
      */
-    error NotAirdropper();
     error ArrayLengthMismatch();
     error BotDetected();
     error TransferDelayNotMet();
@@ -662,7 +657,6 @@ contract CPenBscToken is ERC20, Ownable {
     /**
      * @dev Events
      */
-    event AirdropperUpdated(address indexed previousAirdropper, address indexed newAirdropper);
     event BatchAirdrop(uint256 indexed totalAmount, uint256 indexed recipientCount);
     event BotStatusUpdated(address indexed wallet, bool indexed isBot);
     event MultipleBotStatusUpdated(uint256 count, bool indexed isBot);
@@ -675,35 +669,11 @@ contract CPenBscToken is ERC20, Ownable {
      * @dev Constructor
      */
     constructor() ERC20("cPen", "CPEN") Ownable(msg.sender) {
-        _airdropper = msg.sender;
         // Exclude owner and contract from limits
         excludeFromLimits(msg.sender, true);
         excludeFromLimits(address(this), true);
         // Set known DEX routers
         setKnownBNBUniswapRouters(true);
-    }
-
-    /**
-     * @dev Modifier for airdropper access control
-     */
-    modifier onlyAirdropper() {
-        if (msg.sender != _airdropper) {
-            revert NotAirdropper();
-        }
-        _;
-    }
-
-    /**
-     * @dev Admin functions
-     */
-    function setAirdropper(address newAirdropper) external onlyOwner {        
-        address oldAirdropper = _airdropper;
-        _airdropper = newAirdropper;
-        emit AirdropperUpdated(oldAirdropper, newAirdropper);
-    }
-
-    function getAirdropper() external view returns (address) {
-        return _airdropper;
     }
 
     function removeLimits() external onlyOwner {
@@ -779,7 +749,7 @@ contract CPenBscToken is ERC20, Ownable {
     function batchAirdrop(
         address[] calldata recipients,
         uint256[] calldata amounts
-    ) external onlyAirdropper {
+    ) external onlyOwner {
         if (recipients.length != amounts.length) {
             revert ArrayLengthMismatch();
         }
@@ -846,15 +816,7 @@ contract CPenBscToken is ERC20, Ownable {
     /**
      * @dev Ownership renouncement override
      */
-    function renounceOwnership() public override onlyOwner {
-        // Enable trading before renouncing ownership
-        if (_tradingEnabledBlock == 0) {
-            _tradingEnabledBlock = block.number;
-            emit EnableTrading();
-        }
-        
-        limitsInEffect = false;        
-        _airdropper = address(0);
+    function renounceOwnership() public override onlyOwner {                
         super.renounceOwnership();        
     }
 }
